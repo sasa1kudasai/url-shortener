@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>URL Shortener — все ссылки</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        a { color: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>Все короткие ссылки</h1>
+    <table>
+        <tr>
+            <th>Короткий код</th>
+            <th>Длинная ссылка</th>
+            <th>Кликов</th>
+        </tr>
+        {% for url in urls %}
+        <tr>
+            <td><a href="/{{ url.short_code }}">{{ url.short_code }}</a></td>
+            <td>{{ url.long_url }}</td>
+            <td>{{ url.click_count }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
