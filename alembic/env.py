@@ -14,12 +14,8 @@ sys.path.append(os.getcwd())  # чтобы Alembic видел наши файл�
 
 load_dotenv()
 
-from database import Base
-
-
-from models import URL  # импортируем модель, чтобы Alembic её "увидел"
-
-
+from app.database import Base
+from app.models import URL, Click, User
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
