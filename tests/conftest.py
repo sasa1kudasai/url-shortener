@@ -1,15 +1,14 @@
 import os
 
-import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-from cache import redis_client
-from main import app
-from database import Base, get_db
+from app.cache import redis_client
 
+from app.main import app
+from app.database import Base, get_db
 TEST_DATABASE_URL = os.getenv("DATABASE_URL_TEST")
 
 test_engine = create_async_engine(TEST_DATABASE_URL)
