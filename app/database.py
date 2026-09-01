@@ -6,7 +6,9 @@ from sqlalchemy.orm import DeclarativeBase
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+from app.config import settings
+
+DATABASE_URL = settings.database_url
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 
