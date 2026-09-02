@@ -64,6 +64,7 @@ docker-compose exec api alembic upgrade head
 | `GET` | `/` | HTML-страница со списком всех ссылок |
 | `POST` | `/auth/register` | Регистрация |
 | `POST` | `/auth/login` | Вход, выдаёт JWT |
+| `GET` | `/me/dashboard` | Дашборд: total_clicks, active_links, avg_clicks_per_day, последние ссылки |
 
 Полная интерактивная документация — на `/docs` (Swagger UI).
 
