@@ -5,7 +5,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-from app.cache import redis_client
+from app.cache import redis_client, redis_binary_client
 from app.main import app
 from app.database import Base, get_db
 
@@ -17,6 +17,7 @@ async def _isolate_redis():
     await redis_client.flushdb()
     yield
     await redis_client.aclose()
+    await redis_binary_client.aclose()
 
 
 @pytest_asyncio.fixture

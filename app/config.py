@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     base_url: str = "http://127.0.0.1:8000"
     max_custom_aliases_per_user: int = 5
     custom_alias_limit_window_days: int | None = 30
+    qr_cache_ttl_seconds: int = 86400
 
 
 settings = Settings()

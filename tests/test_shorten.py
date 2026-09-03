@@ -185,7 +185,7 @@ async def test_custom_alias_invalid_format_rejected(client, auth_headers):
         json={"long_url": "https://example.com/invalid", "custom_alias": "a"},
         headers=auth_headers,
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -264,3 +264,30 @@ async def test_custom_alias_limit_without_window_counts_all_time(client, auth_he
         headers=auth_headers,
     )
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_qr_code_is_cached(client, monkeypatch):
+    from app.routers import shorten as shorten_module
+
+    create_response = await client.post(
+        "/shorten", json={"long_url": "https://example.com/qr-cache"}
+    )
+    code = create_response.json()["short_code"]
+
+    call_count = {"count": 0}
+    original_make = shorten_module.qrcode.make
+
+    def counting_make(*args, **kwargs):
+        call_count["count"] += 1
+        return original_make(*args, **kwargs)
+
+    monkeypatch.setattr(shorten_module.qrcode, "make", counting_make)
+
+    first = await client.get(f"/{code}/qr")
+    second = await client.get(f"/{code}/qr")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.content == second.content
+    assert call_count["count"] == 1

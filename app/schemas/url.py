@@ -16,7 +16,7 @@ class URLCreate(BaseModel):
         if value is None or value.strip() == "":
             return None
         if not re.fullmatch(r"[a-zA-Z0-9_-]{3,20}", value):
-            raise HTTPException(status_code=400, detail="Invalid alias format")
+            raise ValueError("Invalid alias format")
         return value
 
 

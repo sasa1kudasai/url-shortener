@@ -4,12 +4,12 @@ import io
 import qrcode
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
-from fastapi.responses import StreamingResponse
-from sqlalchemy import select, func as sqlfunc
+from fastapi.responses import Response
+from sqlalchemy import select, func as sqlfunc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
-from app.cache import redis_client
+from app.cache import redis_client, redis_binary_client
 from app.config import settings
 from app.database import async_session, get_db
 
@@ -44,6 +44,8 @@ async def shorten_url(data: URLCreate, db: AsyncSession = Depends(get_db), curre
         if current_user is None:
             raise HTTPException(status_code=401, detail="Authentication required to use a custom alias")
 
+        await db.execute(text("SELECT pg_advisory_xact_lock(:uid)"), {"uid": current_user.id})
+
         alias = data.custom_alias
 
         if alias.lower() in RESERVED_ALIASES:
@@ -56,6 +58,7 @@ async def shorten_url(data: URLCreate, db: AsyncSession = Depends(get_db), curre
         custom_count_query = select(sqlfunc.count(URL.id)).where(
             URL.owner_id == current_user.id, URL.is_custom.is_(True)
         )
+
         if settings.custom_alias_limit_window_days is not None:
             window_start = datetime.now(UTC) - timedelta(days=settings.custom_alias_limit_window_days)
             custom_count_query = custom_count_query.where(URL.created_at >= window_start)
@@ -135,6 +138,15 @@ async def get_stats(code: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/{code}/qr")
 async def get_qr_code(code: str, db: AsyncSession = Depends(get_db)):
+    cache_key = f"qr:{code}"
+    cached = await redis_binary_client.get(cache_key)
+    if cached is not None:
+        return Response(
+            content=cached,
+            media_type="image/png",
+            headers={"Cache-Control": f"public, max-age={settings.qr_cache_ttl_seconds}"},
+        )
+
     result = await db.execute(select(URL).where(URL.short_code == code))
     url_obj = result.scalar_one_or_none()
     if url_obj is None:
@@ -145,9 +157,14 @@ async def get_qr_code(code: str, db: AsyncSession = Depends(get_db)):
     img = qrcode.make(short_url)
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
-    buffer.seek(0)
-    return StreamingResponse(
-        buffer, media_type="image/png"
+    png_bytes = buffer.getvalue()
+
+    await redis_binary_client.set(cache_key, png_bytes, ex=settings.qr_cache_ttl_seconds)
+
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={"Cache-Control": f"public, max-age={settings.qr_cache_ttl_seconds}"},
     )
 
 
@@ -170,5 +187,3 @@ async def redirect_to_url(code: str, request: Request, background_tasks: Backgro
     background_tasks.add_task(log_click, code, user_agent, ip_address)
 
     return RedirectResponse(url=url_obj.long_url)
-
-
