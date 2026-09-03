@@ -101,3 +101,22 @@ async def test_deduplication_scoped_per_owner(client):
     assert owned_response.json()["owner_id"] == user_id
     assert owned_response.json()["short_code"] != anon_response.json()["short_code"]
     assert owned_response.json()["short_code"] == owned_response_again.json()["short_code"]
+
+
+@pytest.mark.asyncio
+async def test_qr_code_returns_png(client):
+    create_response = await client.post("/shorten", json={"long_url": "https://example.com"})
+    code = create_response.json()["short_code"]
+
+    response = await client.get(f"/{code}/qr")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert len(response.content) > 0
+
+
+@pytest.mark.asyncio
+async def test_qr_code_nonexistent_code_returns_404(client):
+    response = await client.get("/doesnotexist/qr")
+
+    assert response.status_code == 404

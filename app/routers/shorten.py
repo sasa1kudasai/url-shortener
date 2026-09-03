@@ -1,9 +1,16 @@
+import io
+from urllib import request
+
+import qrcode
+
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
 from app.cache import redis_client
+from app.config import settings
 from app.database import async_session, get_db
 
 from app.schemas import URLResponse, URLCreate, StatsResponse, ClicksByDay, DeviceStats
@@ -86,6 +93,23 @@ async def get_stats(code: str, db: AsyncSession = Depends(get_db)):
         clicks_by_device=clicks_by_device,
     )
 
+@router.get("/{code}/qr")
+async def get_qr_code(code: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(URL).where(URL.short_code == code))
+    url_obj = result.scalar_one_or_none()
+    if url_obj is None:
+        raise HTTPException(status_code=404, detail="Short URL not found")
+
+    short_url = f"{settings.base_url}/{code}"
+
+    img = qrcode.make(short_url)
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer, media_type="image/png"
+    )
+
 
 @router.get("/{code}")
 async def redirect_to_url(code: str, request: Request, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
@@ -106,3 +130,5 @@ async def redirect_to_url(code: str, request: Request, background_tasks: Backgro
     background_tasks.add_task(log_click, code, user_agent, ip_address)
 
     return RedirectResponse(url=url_obj.long_url)
+
+

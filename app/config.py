@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     hashids_salt: str = "change-me-in-production"
     database_url_test: str | None = None
     jwt_secret_key: str = "change-me-in-production"
-
+    base_url: str = "http://127.0.0.1:8000"
 
 
 settings = Settings()
