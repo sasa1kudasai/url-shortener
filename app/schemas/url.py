@@ -1,8 +1,23 @@
-from pydantic import BaseModel, HttpUrl, ConfigDict
+import re
+
+from fastapi import HTTPException
+from pydantic import BaseModel, HttpUrl, ConfigDict, field_validator
 
 
 class URLCreate(BaseModel):
     long_url: HttpUrl
+    custom_alias: str | None = None
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    @field_validator("custom_alias")
+    @classmethod
+    def validate_alias(cls, value:str | None) -> str | None:
+        if value is None or value.strip() == "":
+            return None
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{3,20}", value):
+            raise HTTPException(status_code=400, detail="Invalid alias format")
+        return value
 
 
 class URLResponse(BaseModel):

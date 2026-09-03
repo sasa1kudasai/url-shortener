@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     database_url_test: str | None = None
     jwt_secret_key: str = "change-me-in-production"
     base_url: str = "http://127.0.0.1:8000"
+    max_custom_aliases_per_user: int = 5
+    custom_alias_limit_window_days: int | None = 30
 
 
 settings = Settings()

@@ -1,5 +1,5 @@
+from datetime import datetime, timedelta, UTC
 import io
-from urllib import request
 
 import qrcode
 
@@ -18,6 +18,8 @@ from app.utils import encode_id, classify_device
 
 from app.models import URL, Click, User
 from app.auth import get_optional_user
+from constants import RESERVED_ALIASES
+
 router = APIRouter(tags=["shorten"])
 
 
@@ -38,6 +40,45 @@ async def shorten_url(data: URLCreate, db: AsyncSession = Depends(get_db), curre
     long_url_str = str(data.long_url)
     owner_id = current_user.id if current_user else None
 
+    if data.custom_alias:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Authentication required to use a custom alias")
+
+        alias = data.custom_alias
+
+        if alias.lower() in RESERVED_ALIASES:
+            raise HTTPException(status_code=400, detail="This alias is reserved and cannot be used")
+
+        existing_alias = await db.execute(select(URL).where(URL.short_code.ilike(alias)))
+        if existing_alias.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="This alias is already taken")
+
+        custom_count_query = select(sqlfunc.count(URL.id)).where(
+            URL.owner_id == current_user.id, URL.is_custom.is_(True)
+        )
+        if settings.custom_alias_limit_window_days is not None:
+            window_start = datetime.now(UTC) - timedelta(days=settings.custom_alias_limit_window_days)
+            custom_count_query = custom_count_query.where(URL.created_at >= window_start)
+
+        custom_count_result = await db.execute(custom_count_query)
+        custom_count = custom_count_result.scalar_one()
+        if custom_count >= settings.max_custom_aliases_per_user:
+            period_msg = (
+                f"in the last {settings.custom_alias_limit_window_days} days"
+                if settings.custom_alias_limit_window_days is not None
+                else "in total"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail=f"Custom alias limit reached ({settings.max_custom_aliases_per_user} {period_msg})."
+            )
+
+        new_url = URL(short_code=alias, long_url=long_url_str, owner_id=owner_id, is_custom=True)
+        db.add(new_url)
+        await db.commit()
+        await db.refresh(new_url)
+        return new_url
+
     result = await db.execute(
         select(URL).where(URL.long_url == long_url_str, URL.owner_id == owner_id)
     )
@@ -55,7 +96,6 @@ async def shorten_url(data: URLCreate, db: AsyncSession = Depends(get_db), curre
     await db.refresh(new_url)
 
     return new_url
-
 
 @router.get("/{code}/stats", response_model=StatsResponse)
 async def get_stats(code: str, db: AsyncSession = Depends(get_db)):

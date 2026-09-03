@@ -49,3 +49,24 @@ async def client(test_engine):
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def auth_headers(client):
+    await client.post(
+        "/auth/register",
+        json={"email": "custom_alias_user@example.com", "password": "strongpassword123"},
+    )
+    response = await client.post(
+        "/auth/login",
+        json={"email": "custom_alias_user@example.com", "password": "strongpassword123"},
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def db_session(test_engine):
+    TestSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
+    async with TestSessionLocal() as session:
+        yield session
