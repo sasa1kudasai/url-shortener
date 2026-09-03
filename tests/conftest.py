@@ -6,20 +6,18 @@ from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.cache import redis_client
-
 from app.main import app
 from app.database import Base, get_db
+
 TEST_DATABASE_URL = os.getenv("DATABASE_URL_TEST")
 
-test_engine = create_async_engine(TEST_DATABASE_URL)
-TestSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False)
 
 @pytest_asyncio.fixture(autouse=True)
 async def _isolate_redis():
-
     await redis_client.flushdb()
     yield
     await redis_client.aclose()
+
 
 @pytest_asyncio.fixture
 async def test_engine():
